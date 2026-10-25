@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#141826">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}html{height:100%}body{margin:0;font-size:14px}[hidden]{display:none!important}</style>
+<title>夜市射氣球</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Huninn&family=Noto+Sans+TC:wght@400;700;900&display=swap">
+<style>
+/* Layout: one-screen night-market stall — lit sign on top, pegboard of balloons, dart rail below */
+:root{
+  --night:#141826;
+  --board:#1f3b3a;
+  --board-dot:#2a4d4b;
+  --bulb:#ffd35a;
+  --sign:#e8463a;
+  --paper:#fff6e3;
+  --ink:#141826;
+  --muted:#9fb3b0;
+  --display:"Huninn","Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--night);color:var(--paper);font-family:var(--body);overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.app{height:100%;display:flex;flex-direction:column;
+  padding-left:max(12px, env(safe-area-inset-left, 0px));padding-right:max(12px, env(safe-area-inset-right, 0px));padding-block:8px;gap:8px;box-sizing:border-box;max-width:560px;margin:0 auto}
+.sign{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--sign);color:var(--paper);border-radius:10px;padding:8px 14px;
+  box-shadow:0 0 0 3px var(--night),0 0 0 5px var(--bulb),0 0 24px rgba(255,211,90,.35)}
+.sign h1{margin:0;font-family:var(--display);font-size:1.45rem;letter-spacing:.06em;font-weight:400;white-space:nowrap}
+.stats{display:flex;gap:14px;font-variant-numeric:tabular-nums}
+.stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.stat small{font-size:.68rem;letter-spacing:.1em;opacity:.85}
+.stat b{font-family:var(--display);font-weight:400;font-size:1.35rem}
+.stage{position:relative;flex:1;min-height:0;border-radius:10px;overflow:hidden;background:var(--board)}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.rail{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px}
+.darts{display:flex;gap:5px;flex-wrap:wrap}
+.dart-ico{width:8px;height:28px;border-radius:2px;background:linear-gradient(var(--paper) 0 18%,#c9c9c9 18% 70%,var(--sign) 70%)}
+.dart-ico.used{opacity:.15}
+.hint{color:var(--muted);font-size:.8rem;text-align:right}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:rgba(20,24,38,.72);backdrop-filter:blur(2px)}
+.card{background:var(--paper);color:var(--ink);border-radius:14px;padding:22px 20px;max-width:320px;width:100%;text-align:center;
+  box-shadow:0 0 0 4px var(--bulb)}
+.card h2{margin:0 0 6px;font-family:var(--display);font-weight:400;font-size:1.9rem;color:var(--sign);text-wrap:balance}
+.card p{white-space:pre-line;margin:6px 0;line-height:1.6;font-size:.95rem}
+.prizes{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;text-align:left;margin:12px auto;font-size:.88rem;width:fit-content;font-variant-numeric:tabular-nums}
+.prizes span:nth-child(odd){font-weight:700}
+.big{font-family:var(--display);font-size:3rem;line-height:1;color:var(--ink);margin:6px 0}
+.prize-won{display:inline-block;background:var(--sign);color:var(--paper);border-radius:999px;padding:4px 14px;font-weight:700;margin:6px 0}
+button{font:inherit;font-family:var(--display);font-size:1.2rem;border:0;border-radius:999px;padding:12px 28px;margin-top:10px;
+  background:var(--sign);color:var(--paper);cursor:pointer}
+button:focus-visible{outline:3px solid var(--bulb);outline-offset:3px}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);font-family:var(--display);font-size:1.3rem;
+  color:var(--bulb);text-shadow:0 2px 0 var(--ink);pointer-events:none;opacity:0;transition:opacity .2s}
+.toast.on{opacity:1}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="sign">
+    <h1>射氣球</h1>
+    <div class="stats">
+      <div class="stat"><small>分數</small><b id="score">0</b></div>
+      <div class="stat"><small>最高</small><b id="best">0</b></div>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="toast" id="toast"></div>
+    <div class="overlay" id="startOv">
+      <div class="card">
+        <h2>老闆，來一盤！</h2>
+        <p>手指往上一滑就射出飛鏢。<br>滑的方向決定左右，滑越快飛越遠。</p>
+        <div class="prizes">
+          <span>一般氣球</span><span>10 分</span>
+          <span>星星氣球</span><span>30 分</span>
+          <span>連續命中</span><span>每連一發 +5</span>
+        </div>
+        <p>一盤 15 支鏢，看你能拿到什麼稱號</p>
+        <button id="startBtn" type="button">開始射</button>
+      </div>
+    </div>
+    <div class="overlay" id="endOv" hidden>
+      <div class="card">
+        <h2 id="endTitle">結算</h2>
+        <div class="big" id="endScore">0</div>
+        <p id="endDetail"></p>
+        <div class="prize-won" id="endPrize"></div>
+        <div class="prizes">
+          <span>350+</span><span>夜市傳說</span>
+          <span>250+</span><span>鏢神降臨</span>
+          <span>160+</span><span>神射手</span>
+          <span>80+</span><span>夜市常客</span>
+          <span>80 以下</span><span>氣球守護者</span>
+        </div>
+        <button id="againBtn" type="button">再來一盤</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rail">
+    <div class="darts" id="darts"></div>
+    <div class="hint">往上滑射出 · 越快越遠</div>
+  </div>
+</div>
+
+<script>
+(()=>{
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const stage=document.getElementById('stage');
+const $=id=>document.getElementById(id);
+const TOTAL=15, COLS=5, ROWS=6;
+const COLORS=['#e8463a','#ff8a2a','#ffd35a','#4fc3a1','#4a90e2','#b569e0','#ff6fa8'];
+let W=0,H=0,DPR=1;
+let balloons=[], stuck=[], parts=[], flying=null, floats=[];
+let score=0, darts=TOTAL, combo=0, hits=0, playing=false;
+let aim=null; // {x,y}
+let t0=performance.now();
+let best=0;
+try{best=+localStorage.getItem('balloonBest')||0}catch(e){}
+$('best').textContent=best;
+
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function resize(){
+  DPR=Math.min(devicePixelRatio||1,2);
+  const r=stage.getBoundingClientRect(); W=r.width; H=r.height;
+  cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+  layout();
+}
+function layout(){
+  const padX=W*0.06, top=H*0.05, boardH=H*0.68;
+  const cw=(W-padX*2)/COLS, ch=boardH/ROWS;
+  const r=Math.min(cw,ch)*0.4;
+  balloons.forEach(b=>{
+    b.bx=padX+cw*(b.c+0.5)+(b.r%2?cw*0.12:-cw*0.12)*(b.c%2?1:-1)*0.5;
+    b.by=top+ch*(b.r+0.5); b.rad=r;
+  });
+}
+function newBoard(){
+  balloons=[];
+  const stars=new Set();
+  while(stars.size<4) stars.add(Math.floor(Math.random()*COLS*ROWS));
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const i=r*COLS+c;
+    balloons.push({r,c,color:COLORS[(Math.random()*COLORS.length)|0],star:stars.has(i),alive:true,ph:Math.random()*6.28});
+  }
+  stuck=[];parts=[];floats=[];flying=null;layout();
+}
+function renderDarts(){
+  const d=$('darts'); d.innerHTML='';
+  for(let i=0;i<TOTAL;i++){const s=document.createElement('div');s.className='dart-ico'+(i>=darts?' used':'');d.appendChild(s)}
+}
+function bob(b,t){return reduce?0:Math.sin(t/700+b.ph)*b.rad*0.06}
+
+// audio
+let ac=null;
+function audio(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume()}catch(e){}}
+function pop(){
+  if(!ac)return;
+  const n=ac.sampleRate*0.12, buf=ac.createBuffer(1,n,ac.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,4);
+  const s=ac.createBufferSource(); s.buffer=buf;
+  const f=ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=900;
+  const g=ac.createGain(); g.gain.value=0.7;
+  s.connect(f).connect(g).connect(ac.destination); s.start();
+}
+function thud(){
+  if(!ac)return;
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.frequency.setValueAtTime(180,ac.currentTime);o.frequency.exponentialRampToValueAtTime(60,ac.currentTime+0.1);
+  g.gain.setValueAtTime(0.3,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.12);
+  o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+0.13);
+}
+function buzz(ms){try{navigator.vibrate&&navigator.vibrate(ms)}catch(e){}}
+
+// swipe-to-throw: aim = {x,y,trail:[{x,y,t}]}
+function pt(e){const r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top,t:performance.now()}}
+
+cv.addEventListener('pointerdown',e=>{
+  if(!playing||flying||darts<=0)return;
+  audio(); cv.setPointerCapture(e.pointerId);
+  const p=pt(e); aim={x:p.x,y:p.y,trail:[p]};
+});
+cv.addEventListener('pointermove',e=>{
+  if(!aim)return;
+  const p=pt(e); aim.x=p.x; aim.y=p.y; aim.trail.push(p);
+  while(aim.trail.length>2&&p.t-aim.trail[0].t>90)aim.trail.shift();
+});
+function release(e){
+  if(!aim)return;
+  const end=e?pt(e):aim.trail[aim.trail.length-1];
+  aim.trail.push(end);
+  const a=aim.trail[0], dt=Math.max(16,end.t-a.t);
+  const dx=end.x-a.x, dy=end.y-a.y;
+  aim=null;
+  if(dy>-12){toast('往上滑才能射喔');return}           // not an upward flick
+  const speed=Math.hypot(dx,dy)/dt;                     // px per ms
+  const len=Math.hypot(dx,dy), ux=dx/len, uy=dy/len;
+  const dist=Math.min(H*1.1,Math.max(H*0.12,speed*H*0.32));
+  const jitter=Math.min(W,H)*0.02;
+  let tx=end.x+ux*dist+(Math.random()-0.5)*jitter;
+  let ty=end.y+uy*dist+(Math.random()-0.5)*jitter;
+  tx=Math.max(4,Math.min(W-4,tx)); ty=Math.max(4,Math.min(H-4,ty));
+  darts--; renderDarts();
+  flying={sx:end.x,sy:end.y,tx,ty,start:performance.now(),dur:240};
+}
+cv.addEventListener('pointerup',release);
+cv.addEventListener('pointercancel',()=>{aim=null});
+
+function land(f){
+  const now=performance.now();
+  let hit=null;
+  for(const b of balloons){
+    if(!b.alive)continue;
+    const by=b.by+bob(b,now);
+    const dx=f.tx-b.bx, dy=(f.ty-by)/1.15;
+    if(dx*dx+dy*dy<b.rad*b.rad*0.95){hit=b;break}
+  }
+  if(hit){
+    hit.alive=false; combo++; hits++;
+    const base=hit.star?30:10, bonus=(combo-1)*5, pts=base+bonus;
+    score+=pts; $('score').textContent=score;
+    floats.push({x:hit.bx,y:hit.by,txt:'+'+pts,t:now});
+    for(let i=0;i<22;i++){const a=Math.random()*6.28,s=2+Math.random()*4;
+      parts.push({x:hit.bx,y:hit.by,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,c:hit.star?'#ffd35a':hit.color,life:1,w:3+Math.random()*4})}
+    pop(); buzz(25);
+    if(combo>=3)toast(combo+' 連發！');
+    if(hit.star)toast('星星氣球！');
+  }else{
+    combo=0; thud(); buzz(8);
+  }
+  stuck.push({x:f.tx,y:f.ty,ang:-0.15+Math.random()*0.3});
+  if(darts<=0||!balloons.some(b=>b.alive)) setTimeout(end,700);
+}
+let toastT;
+function toast(s){const el=$('toast');el.textContent=s;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('on'),900)}
+
+// drawing
+function drawBoard(){
+  ctx.fillStyle='#1f3b3a';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#2a4d4b';
+  const s=18;
+  for(let y=s/2;y<H;y+=s)for(let x=s/2;x<W;x+=s){ctx.beginPath();ctx.arc(x,y,1.6,0,6.28);ctx.fill()}
+  // bulb string at top
+  const n=Math.max(6,Math.floor(W/34)), t=performance.now();
+  for(let i=0;i<n;i++){
+    const x=(i+0.5)*W/n, on=reduce?1:(Math.floor(t/400)+i)%3!==0;
+    ctx.beginPath();ctx.arc(x,6,4,0,6.28);
+    ctx.fillStyle=on?'#ffd35a':'#6b5a2a';ctx.shadowColor='#ffd35a';ctx.shadowBlur=on?10:0;ctx.fill();ctx.shadowBlur=0;
+  }
+}
+function drawBalloon(b,t){
+  const x=b.bx,y=b.by+bob(b,t),r=b.rad;
+  ctx.strokeStyle='rgba(255,246,227,.35)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(x,y+r*1.15);ctx.quadraticCurveTo(x+r*0.2,y+r*1.5,x,y+r*1.8);ctx.stroke();
+  ctx.beginPath();ctx.ellipse(x,y,r,r*1.15,0,0,6.28);
+  const g=ctx.createRadialGradient(x-r*0.35,y-r*0.45,r*0.1,x,y,r*1.2);
+  const col=b.star?'#ffd35a':b.color;
+  g.addColorStop(0,'#ffffff');g.addColorStop(0.18,col);g.addColorStop(1,shade(col,-0.35));
+  ctx.fillStyle=g;ctx.fill();
+  ctx.beginPath();ctx.moveTo(x-r*0.15,y+r*1.15);ctx.lineTo(x+r*0.15,y+r*1.15);ctx.lineTo(x,y+r*1.02);ctx.closePath();
+  ctx.fillStyle=shade(col,-0.35);ctx.fill();
+  if(b.star){star(x,y+r*0.05,r*0.42,'#e8463a')}
+}
+function star(x,y,r,c){ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*0.45:r;ctx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr)}ctx.closePath();ctx.fillStyle=c;ctx.fill()}
+function shade(hex,p){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;
+  const f=v=>Math.max(0,Math.min(255,Math.round(v+(p<0?v*p:(255-v)*p))));return `rgb(${f(r)},${f(g)},${f(b)})`}
+function drawDart(x,y,ang,scale){
+  ctx.save();ctx.translate(x,y);ctx.rotate(ang);ctx.scale(scale,scale);
+  ctx.fillStyle='#c9c9c9';ctx.fillRect(-1.5,0,3,22);
+  ctx.fillStyle='#e8463a';ctx.beginPath();ctx.moveTo(0,20);ctx.lineTo(-8,34);ctx.lineTo(0,30);ctx.lineTo(8,34);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#fff6e3';ctx.beginPath();ctx.moveTo(0,-4);ctx.lineTo(-2,2);ctx.lineTo(2,2);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+function drawAim(t){
+  if(playing&&!aim&&!flying&&darts>0){
+    // resting dart at the bottom invites a swipe
+    const y=H-92+(reduce?0:Math.sin(t/300)*4);
+    drawDart(W/2,y,0,2.4);
+    ctx.fillStyle='rgba(255,246,227,.55)';ctx.font='13px "Noto Sans TC", sans-serif';ctx.textAlign='center';
+    ctx.fillText('↑ 往上滑',W/2,H-6);
+    return;
+  }
+  if(!aim)return;
+  const tr=aim.trail;
+  ctx.strokeStyle='rgba(255,211,90,.5)';ctx.lineWidth=4;ctx.lineCap='round';
+  ctx.beginPath();tr.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
+  const a=tr[Math.max(0,tr.length-4)], ang=Math.atan2(aim.x-a.x,-(aim.y-a.y));
+  drawDart(aim.x,aim.y-20,isFinite(ang)?ang:0,2.4);
+}
+function frame(){
+  const t=performance.now();
+  drawBoard();
+  for(const b of balloons)if(b.alive)drawBalloon(b,t);
+  for(const s of stuck)drawDart(s.x,s.y,s.ang,1.15);
+  for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.vy+=0.18;p.life-=0.03;
+    ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.w,p.w*0.6)}
+  ctx.globalAlpha=1;parts=parts.filter(p=>p.life>0);
+  ctx.font='22px Huninn, "Noto Sans TC", sans-serif';ctx.textAlign='center';
+  floats=floats.filter(f=>t-f.t<900);
+  for(const f of floats){const k=(t-f.t)/900;ctx.globalAlpha=1-k;ctx.fillStyle='#141826';ctx.fillText(f.txt,f.x+1,f.y-k*40+2);
+    ctx.fillStyle='#ffd35a';ctx.fillText(f.txt,f.x,f.y-k*40)}
+  ctx.globalAlpha=1;
+  if(flying){
+    const k=Math.min(1,(t-flying.start)/flying.dur), e=1-Math.pow(1-k,2);
+    const x=flying.sx+(flying.tx-flying.sx)*e, y=flying.sy+(flying.ty-flying.sy)*e-Math.sin(k*Math.PI)*30;
+    drawDart(x,y,Math.atan2(flying.tx-flying.sx,-(flying.ty-flying.sy))*0.3,2.4-1.25*e);
+    if(k>=1){const f=flying;flying=null;land(f)}
+  }
+  drawAim(t);
+  requestAnimationFrame(frame);
+}
+
+function start(){
+  audio();
+  score=0;darts=TOTAL;combo=0;hits=0;$('score').textContent=0;
+  newBoard();renderDarts();playing=true;
+  $('startOv').hidden=true;$('endOv').hidden=true;
+}
+function end(){
+  if(!playing)return;
+  playing=false;
+  let prize,title;
+  let quip;
+  if(score>=350){prize='夜市傳說';title='老闆含淚收攤';quip='氣球被你打光，老闆說明天不擺了'}
+  else if(score>=250){prize='鏢神降臨';title='老闆開始緊張';quip='老闆偷偷把氣球吹得更小一點'}
+  else if(score>=160){prize='神射手';title='隔壁攤都在看';quip='賣雞排的阿伯幫你拍手'}
+  else if(score>=80){prize='夜市常客';title='手感漸入佳境';quip='再一盤，下一盤一定更準'}
+  else{prize='氣球守護者';title='氣球們感謝你';quip='感謝你的不殺之恩，牠們會記得你'}
+  const newBest=score>best;
+  if(newBest){best=score;$('best').textContent=best;try{localStorage.setItem('balloonBest',best)}catch(e){}}
+  $('endTitle').textContent=title;
+  $('endScore').textContent=score;
+  $('endDetail').textContent=`${TOTAL} 鏢中 ${hits} 鏢`+(newBest?'，刷新最高分！':'')+'\n'+quip;
+  $('endPrize').textContent='稱號：'+prize;
+  $('endOv').hidden=false;
+}
+$('startBtn').addEventListener('click',start);
+$('againBtn').addEventListener('click',start);
+addEventListener('resize',resize);
+newBoard();renderDarts();resize();requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
